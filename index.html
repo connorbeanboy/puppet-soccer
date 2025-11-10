@@ -7,53 +7,28 @@
 <style>
 body { margin:0; overflow:hidden; }
 canvas { display:block; margin:0 auto; background:#88CC88; }
-#ui { position:absolute; top:10px; left:50%; transform:translateX(-50%); text-align:center; color:white; font-weight:bold; text-shadow:2px 2px 4px #000; }
-#score { font-size:32px; }
-#round { font-size:24px; margin-top:5px; }
-#menu { display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:white; font-size:32px; display:flex; flex-direction:column; justify-content:center; align-items:center; }
-.menu-button { margin:10px; padding:10px 20px; border:2px solid white; cursor:pointer; border-radius:10px; }
-#countrySelect { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; color:white; font-size:32px; text-shadow:2px 2px 4px #000; }
-.country-button { margin:10px; padding:10px 20px; border:2px solid white; cursor:pointer; border-radius:10px; }
+#score { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 4px #000; }
+#round { position:absolute; top:50px; left:50%; transform:translateX(-50%); font-size:24px; color:white; text-shadow:2px 2px 4px #000; }
 </style>
 </head>
 <body>
-<div id="ui">
-    <div id="score">Player: 0 | AI: 0</div>
-    <div id="round">Round: 1</div>
-</div>
-<div id="menu">
-    <div class="menu-button" onclick="resumeGame()">Resume</div>
-    <div class="menu-button" onclick="restartGame()">Restart</div>
-</div>
-<div id="countrySelect">
-    <div>Pick Your Country:</div>
-    <div class="country-button" onclick="selectCountry('USA')">USA</div>
-    <div class="country-button" onclick="selectCountry('Brazil')">Brazil</div>
-    <div class="country-button" onclick="selectCountry('Germany')">Germany</div>
-    <div class="country-button" onclick="selectCountry('Japan')">Japan</div>
-</div>
+<div id="score">Player: 0 | AI: 0</div>
+<div id="round">Round: 1</div>
 <script>
-let config = {
+const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    physics: { default: 'arcade', arcade: { gravity: { y: 300 }, debug: false } },
+    physics: { default: 'arcade', arcade: { gravity: { y: 500 }, debug: false } },
     scene: { preload, create, update }
 };
-let game = new Phaser.Game(config);
+const game = new Phaser.Game(config);
 
 let player, ai, ball;
 let cursors;
-let playerScore=0, aiScore=0;
-let round=1;
-let aiSpeed=100;
-let gamePaused=false;
-let selectedCountry="";
-
-function selectCountry(country){
-    selectedCountry = country;
-    document.getElementById('countrySelect').style.display = 'none';
-}
+let playerScore = 0, aiScore = 0;
+let round = 1;
+let aiSpeed = 100;
 
 function preload() {
     this.load.image('puppet','https://kenney.nl/assets/1bitpack/Character0001.png');
@@ -63,66 +38,45 @@ function preload() {
 
 function create() {
     // Ground
-    this.add.tileSprite(400,590,800,40,'ground');
-    this.physics.add.staticGroup().create(400,610, 'ground').setScale(2).refreshBody();
+    const ground = this.physics.add.staticGroup();
+    ground.create(400, 590, 'ground').setScale(2).refreshBody();
 
-    // Player puppet
-    player = this.physics.add.sprite(150,500,'puppet').setCollideWorldBounds(true);
-    player.setBounce(0.2);
-
-    // AI puppet
-    ai = this.physics.add.sprite(650,500,'puppet').setCollideWorldBounds(true);
-    ai.setBounce(0.2);
+    // Player
+    player = this.physics.add.sprite(150,500,'puppet').setCollideWorldBounds(true).setBounce(0.2);
+    ai = this.physics.add.sprite(650,500,'puppet').setCollideWorldBounds(true).setBounce(0.2);
 
     // Ball
-    ball = this.physics.add.sprite(400,400,'ball').setCollideWorldBounds(true);
-    ball.setBounce(0.9);
+    ball = this.physics.add.sprite(400,400,'ball').setCollideWorldBounds(true).setBounce(0.9);
     ball.setVelocity(Phaser.Math.Between(-200,200), -200);
 
-    // Collisions
+    // Colliders
+    this.physics.add.collider(player, ground);
+    this.physics.add.collider(ai, ground);
+    this.physics.add.collider(ball, ground);
     this.physics.add.collider(player, ball);
     this.physics.add.collider(ai, ball);
     this.physics.add.collider(player, ai);
-    this.physics.add.collider(player, this.physics.world.bounds);
-    this.physics.add.collider(ai, this.physics.world.bounds);
 
     cursors = this.input.keyboard.createCursorKeys();
 
     // Goals
     this.leftGoal = new Phaser.Geom.Rectangle(0,0,50,600);
     this.rightGoal = new Phaser.Geom.Rectangle(750,0,50,600);
-
-    // ESC menu
-    this.input.keyboard.on('keydown-ESC', toggleMenu);
 }
 
-function toggleMenu(){
-    gamePaused = !gamePaused;
-    document.getElementById('menu').style.display = gamePaused ? 'flex' : 'none';
-    game.scene.scenes[0].physics.world.isPaused = gamePaused;
-}
-
-function resumeGame(){ toggleMenu(); }
-function restartGame(){
-    playerScore=0; aiScore=0; round=1; aiSpeed=100; nextRound(game.scene.scenes[0]);
-    toggleMenu();
-}
-
-function update(time, delta) {
-    if(gamePaused || selectedCountry==="") return;
-
+function update() {
     // Player movement
     player.setVelocityX(0);
     if(cursors.left.isDown) player.setVelocityX(-200);
     if(cursors.right.isDown) player.setVelocityX(200);
-    if(cursors.up.isDown && player.body.touching.down) player.setVelocityY(-300);
+    if(cursors.up.isDown && player.body.onFloor()) player.setVelocityY(-350); // Fixed jump
 
-    // AI simple movement: follow ball
+    // AI movement: follow ball with increasing difficulty
     const aiTargetX = ball.x;
     let aiVelocity = (aiTargetX - ai.x);
     aiVelocity = Phaser.Math.Clamp(aiVelocity, -aiSpeed, aiSpeed);
     ai.setVelocityX(aiVelocity);
-    if(ball.y < ai.y && ai.body.touching.down) ai.setVelocityY(-300);
+    if(ball.y < ai.y && ai.body.onFloor()) ai.setVelocityY(-300);
 
     // Check goals
     if(Phaser.Geom.Rectangle.ContainsPoint(this.leftGoal, ball)) {
@@ -132,7 +86,7 @@ function update(time, delta) {
         playerScore++; nextRound(this);
     }
 
-    document.getElementById('score').innerText = `${selectedCountry}: ${playerScore} | AI: ${aiScore}`;
+    document.getElementById('score').innerText = `Player: ${playerScore} | AI: ${aiScore}`;
     document.getElementById('round').innerText = `Round: ${round}`;
 }
 
