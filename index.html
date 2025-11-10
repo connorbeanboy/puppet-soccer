@@ -69,6 +69,8 @@ function update() {
     player.setVelocityX(0);
     if(cursors.left.isDown) player.setVelocityX(-200);
     if(cursors.right.isDown) player.setVelocityX(200);
+
+    // THIS IS THE LINE YOU WANTED:
     if(cursors.up.isDown && player.body.onFloor()) player.setVelocityY(-350); // Fixed jump
 
     // AI movement: follow ball with increasing difficulty
