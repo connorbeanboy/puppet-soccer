@@ -19,7 +19,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    physics: { default: 'arcade', arcade: { gravity: { y: 500 }, debug: false } },
+    physics: { default: 'arcade', arcade: { gravity: { y: 1000 }, debug: false } }, // Higher gravity
     scene: { preload, create, update }
 };
 const game = new Phaser.Game(config);
@@ -32,7 +32,6 @@ let aiSpeed = 100;
 
 function preload() {
     this.load.image('puppet','https://kenney.nl/assets/1bitpack/Character0001.png');
-    this.load.image('ball','https://kenney.nl/assets/1bitpack/Ball.png');
     this.load.image('ground','https://kenney.nl/assets/1bitpack/Tile_Grass.png');
 }
 
@@ -45,9 +44,13 @@ function create() {
     player = this.physics.add.sprite(150,500,'puppet').setCollideWorldBounds(true).setBounce(0.2);
     ai = this.physics.add.sprite(650,500,'puppet').setCollideWorldBounds(true).setBounce(0.2);
 
-    // Ball
-    ball = this.physics.add.sprite(400,400,'ball').setCollideWorldBounds(true).setBounce(0.9);
-    ball.setVelocity(Phaser.Math.Between(-200,200), -200);
+    // Ball as a circle
+    ball = this.add.circle(400,400,15,0xffffff); // white circle
+    this.physics.add.existing(ball);
+    ball.body.setCollideWorldBounds(true);
+    ball.body.setBounce(0.9);
+    ball.body.setCircle(15); // circular physics
+    ball.body.setVelocity(Phaser.Math.Between(-200,200), -300);
 
     // Colliders
     this.physics.add.collider(player, ground);
@@ -59,9 +62,9 @@ function create() {
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // Goals
-    this.leftGoal = new Phaser.Geom.Rectangle(0,0,50,600);
-    this.rightGoal = new Phaser.Geom.Rectangle(750,0,50,600);
+    // Remove unnecessary rectangle graphics – we just track goals with coordinates, not visible rectangles
+    this.leftGoalX = 0;  // AI goal: x <= 0
+    this.rightGoalX = 800; // Player goal: x >= 800
 }
 
 function update() {
@@ -69,22 +72,19 @@ function update() {
     player.setVelocityX(0);
     if(cursors.left.isDown) player.setVelocityX(-200);
     if(cursors.right.isDown) player.setVelocityX(200);
+    if(cursors.up.isDown && player.body.onFloor()) player.setVelocityY(-350); // Jump
 
-    // THIS IS THE LINE YOU WANTED:
-    if(cursors.up.isDown && player.body.onFloor()) player.setVelocityY(-350); // Fixed jump
-
-    // AI movement: follow ball with increasing difficulty
-    const aiTargetX = ball.x;
-    let aiVelocity = (aiTargetX - ai.x);
-    aiVelocity = Phaser.Math.Clamp(aiVelocity, -aiSpeed, aiSpeed);
+    // AI movement: push ball left
+    const targetX = ball.x - ai.x;
+    let aiVelocity = Phaser.Math.Clamp(targetX, -aiSpeed, aiSpeed);
     ai.setVelocityX(aiVelocity);
     if(ball.y < ai.y && ai.body.onFloor()) ai.setVelocityY(-300);
 
     // Check goals
-    if(Phaser.Geom.Rectangle.ContainsPoint(this.leftGoal, ball)) {
+    if(ball.x <= this.leftGoalX) { // AI scored
         aiScore++; nextRound(this);
     }
-    if(Phaser.Geom.Rectangle.ContainsPoint(this.rightGoal, ball)) {
+    if(ball.x >= this.rightGoalX) { // Player scored
         playerScore++; nextRound(this);
     }
 
@@ -100,7 +100,7 @@ function nextRound(scene){
     player.setPosition(150,500);
     ai.setPosition(650,500);
     ball.setPosition(400,400);
-    ball.setVelocity(Phaser.Math.Between(-200,200), -200);
+    ball.body.setVelocity(Phaser.Math.Between(-200,200), -300);
 }
 </script>
 </body>
