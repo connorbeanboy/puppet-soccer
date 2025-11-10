@@ -7,28 +7,53 @@
 <style>
 body { margin:0; overflow:hidden; }
 canvas { display:block; margin:0 auto; background:#88CC88; }
-#score { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 4px #000; }
-#round { position:absolute; top:50px; left:50%; transform:translateX(-50%); font-size:24px; color:white; text-shadow:2px 2px 4px #000; }
+#ui { position:absolute; top:10px; left:50%; transform:translateX(-50%); text-align:center; color:white; font-weight:bold; text-shadow:2px 2px 4px #000; }
+#score { font-size:32px; }
+#round { font-size:24px; margin-top:5px; }
+#menu { display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:white; font-size:32px; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+.menu-button { margin:10px; padding:10px 20px; border:2px solid white; cursor:pointer; border-radius:10px; }
+#countrySelect { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; color:white; font-size:32px; text-shadow:2px 2px 4px #000; }
+.country-button { margin:10px; padding:10px 20px; border:2px solid white; cursor:pointer; border-radius:10px; }
 </style>
 </head>
 <body>
-<div id="score">Player: 0 | AI: 0</div>
-<div id="round">Round: 1</div>
+<div id="ui">
+    <div id="score">Player: 0 | AI: 0</div>
+    <div id="round">Round: 1</div>
+</div>
+<div id="menu">
+    <div class="menu-button" onclick="resumeGame()">Resume</div>
+    <div class="menu-button" onclick="restartGame()">Restart</div>
+</div>
+<div id="countrySelect">
+    <div>Pick Your Country:</div>
+    <div class="country-button" onclick="selectCountry('USA')">USA</div>
+    <div class="country-button" onclick="selectCountry('Brazil')">Brazil</div>
+    <div class="country-button" onclick="selectCountry('Germany')">Germany</div>
+    <div class="country-button" onclick="selectCountry('Japan')">Japan</div>
+</div>
 <script>
-const config = {
+let config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
     physics: { default: 'arcade', arcade: { gravity: { y: 300 }, debug: false } },
     scene: { preload, create, update }
 };
-const game = new Phaser.Game(config);
+let game = new Phaser.Game(config);
 
 let player, ai, ball;
 let cursors;
-let playerScore = 0, aiScore = 0;
-let round = 1;
-let aiSpeed = 100;
+let playerScore=0, aiScore=0;
+let round=1;
+let aiSpeed=100;
+let gamePaused=false;
+let selectedCountry="";
+
+function selectCountry(country){
+    selectedCountry = country;
+    document.getElementById('countrySelect').style.display = 'none';
+}
 
 function preload() {
     this.load.image('puppet','https://kenney.nl/assets/1bitpack/Character0001.png');
@@ -57,8 +82,6 @@ function create() {
     // Collisions
     this.physics.add.collider(player, ball);
     this.physics.add.collider(ai, ball);
-    this.physics.add.collider(ball, player);
-    this.physics.add.collider(ball, ai);
     this.physics.add.collider(player, ai);
     this.physics.add.collider(player, this.physics.world.bounds);
     this.physics.add.collider(ai, this.physics.world.bounds);
@@ -68,9 +91,26 @@ function create() {
     // Goals
     this.leftGoal = new Phaser.Geom.Rectangle(0,0,50,600);
     this.rightGoal = new Phaser.Geom.Rectangle(750,0,50,600);
+
+    // ESC menu
+    this.input.keyboard.on('keydown-ESC', toggleMenu);
+}
+
+function toggleMenu(){
+    gamePaused = !gamePaused;
+    document.getElementById('menu').style.display = gamePaused ? 'flex' : 'none';
+    game.scene.scenes[0].physics.world.isPaused = gamePaused;
+}
+
+function resumeGame(){ toggleMenu(); }
+function restartGame(){
+    playerScore=0; aiScore=0; round=1; aiSpeed=100; nextRound(game.scene.scenes[0]);
+    toggleMenu();
 }
 
 function update(time, delta) {
+    if(gamePaused || selectedCountry==="") return;
+
     // Player movement
     player.setVelocityX(0);
     if(cursors.left.isDown) player.setVelocityX(-200);
@@ -80,10 +120,8 @@ function update(time, delta) {
     // AI simple movement: follow ball
     const aiTargetX = ball.x;
     let aiVelocity = (aiTargetX - ai.x);
-    // AI speed scales with round
     aiVelocity = Phaser.Math.Clamp(aiVelocity, -aiSpeed, aiSpeed);
     ai.setVelocityX(aiVelocity);
-
     if(ball.y < ai.y && ai.body.touching.down) ai.setVelocityY(-300);
 
     // Check goals
@@ -94,14 +132,14 @@ function update(time, delta) {
         playerScore++; nextRound(this);
     }
 
-    document.getElementById('score').innerText = `Player: ${playerScore} | AI: ${aiScore}`;
+    document.getElementById('score').innerText = `${selectedCountry}: ${playerScore} | AI: ${aiScore}`;
+    document.getElementById('round').innerText = `Round: ${round}`;
 }
 
 function nextRound(scene){
     round++;
-    aiSpeed += 10; // AI gets faster each round
-    if(round > 100) aiSpeed = 1000; // impossible at 100
-    document.getElementById('round').innerText = `Round: ${round}`;
+    aiSpeed += 10;
+    if(round > 100) aiSpeed = 1000;
     // Reset positions
     player.setPosition(150,500);
     ai.setPosition(650,500);
