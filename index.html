@@ -6,7 +6,7 @@
 <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
 <style>
 body { margin:0; overflow:hidden; }
-canvas { display:block; margin:0 auto; background:#88CC88; }
+canvas { display:block; margin:0 auto; }
 #score { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 4px #000; }
 #round { position:absolute; top:50px; left:50%; transform:translateX(-50%); font-size:24px; color:white; text-shadow:2px 2px 4px #000; }
 </style>
@@ -19,12 +19,12 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    physics: { default: 'arcade', arcade: { gravity: { y: 1000 }, debug: false } }, // Higher gravity
+    physics: { default: 'arcade', arcade: { gravity: { y: 1200 }, debug: false } }, // Higher gravity for snappy jumps
     scene: { preload, create, update }
 };
 const game = new Phaser.Game(config);
 
-let player, ai, ball;
+let player, ai, ball, ground;
 let cursors;
 let playerScore = 0, aiScore = 0;
 let round = 1;
@@ -36,20 +36,28 @@ function preload() {
 }
 
 function create() {
-    // Ground
-    const ground = this.physics.add.staticGroup();
+    // Football pitch background
+    this.add.rectangle(400,300,800,600,0x00AA00); // green pitch
+    this.add.rectangle(400,300,780,580,0x33CC33); // field boundary
+    this.add.line(400,300,0,0,0,580,0xFFFFFF).setOrigin(0,0); // left line
+    this.add.line(400,300,780,0,780,580,0xFFFFFF).setOrigin(0,0); // right line
+    this.add.line(400,300,0,300,800,300,0xFFFFFF).setOrigin(0,0); // center line
+    this.add.circle(400,300,50,0xFFFFFF).setStrokeStyle(2,0xFFFFFF); // center circle
+
+    // Ground platform (physics)
+    ground = this.physics.add.staticGroup();
     ground.create(400, 590, 'ground').setScale(2).refreshBody();
 
     // Player
     player = this.physics.add.sprite(150,500,'puppet').setCollideWorldBounds(true).setBounce(0.2);
     ai = this.physics.add.sprite(650,500,'puppet').setCollideWorldBounds(true).setBounce(0.2);
 
-    // Ball as a circle
-    ball = this.add.circle(400,400,15,0xffffff); // white circle
+    // Ball
+    ball = this.add.circle(400,400,15,0xFFFF00); // yellow circle
     this.physics.add.existing(ball);
     ball.body.setCollideWorldBounds(true);
     ball.body.setBounce(0.9);
-    ball.body.setCircle(15); // circular physics
+    ball.body.setCircle(15);
     ball.body.setVelocity(Phaser.Math.Between(-200,200), -300);
 
     // Colliders
@@ -62,9 +70,9 @@ function create() {
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // Remove unnecessary rectangle graphics – we just track goals with coordinates, not visible rectangles
-    this.leftGoalX = 0;  // AI goal: x <= 0
-    this.rightGoalX = 800; // Player goal: x >= 800
+    // Goal coordinates
+    this.leftGoalX = 0; 
+    this.rightGoalX = 800;
 }
 
 function update() {
@@ -72,13 +80,13 @@ function update() {
     player.setVelocityX(0);
     if(cursors.left.isDown) player.setVelocityX(-200);
     if(cursors.right.isDown) player.setVelocityX(200);
-    if(cursors.up.isDown && player.body.onFloor()) player.setVelocityY(-350); // Jump
+    if(cursors.up.isDown && player.body.onFloor()) player.setVelocityY(-500); // higher jump
 
     // AI movement: push ball left
     const targetX = ball.x - ai.x;
     let aiVelocity = Phaser.Math.Clamp(targetX, -aiSpeed, aiSpeed);
     ai.setVelocityX(aiVelocity);
-    if(ball.y < ai.y && ai.body.onFloor()) ai.setVelocityY(-300);
+    if(ball.y < ai.y && ai.body.onFloor()) ai.setVelocityY(-350);
 
     // Check goals
     if(ball.x <= this.leftGoalX) { // AI scored
