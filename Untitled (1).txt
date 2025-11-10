@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Puppet Soccer</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+<style>
+body { margin:0; overflow:hidden; }
+canvas { display:block; margin:0 auto; background:#88CC88; }
+#score { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 4px #000; }
+#round { position:absolute; top:50px; left:50%; transform:translateX(-50%); font-size:24px; color:white; text-shadow:2px 2px 4px #000; }
+</style>
+</head>
+<body>
+<div id="score">Player: 0 | AI: 0</div>
+<div id="round">Round: 1</div>
+<script>
+const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    physics: { default: 'arcade', arcade: { gravity: { y: 300 }, debug: false } },
+    scene: { preload, create, update }
+};
+const game = new Phaser.Game(config);
+
+let player, ai, ball;
+let cursors;
+let playerScore = 0, aiScore = 0;
+let round = 1;
+let aiSpeed = 100;
+
+function preload() {
+    this.load.image('puppet','https://kenney.nl/assets/1bitpack/Character0001.png');
+    this.load.image('ball','https://kenney.nl/assets/1bitpack/Ball.png');
+    this.load.image('ground','https://kenney.nl/assets/1bitpack/Tile_Grass.png');
+}
+
+function create() {
+    // Ground
+    this.add.tileSprite(400,590,800,40,'ground');
+    this.physics.add.staticGroup().create(400,610, 'ground').setScale(2).refreshBody();
+
+    // Player puppet
+    player = this.physics.add.sprite(150,500,'puppet').setCollideWorldBounds(true);
+    player.setBounce(0.2);
+
+    // AI puppet
+    ai = this.physics.add.sprite(650,500,'puppet').setCollideWorldBounds(true);
+    ai.setBounce(0.2);
+
+    // Ball
+    ball = this.physics.add.sprite(400,400,'ball').setCollideWorldBounds(true);
+    ball.setBounce(0.9);
+    ball.setVelocity(Phaser.Math.Between(-200,200), -200);
+
+    // Collisions
+    this.physics.add.collider(player, ball);
+    this.physics.add.collider(ai, ball);
+    this.physics.add.collider(ball, player);
+    this.physics.add.collider(ball, ai);
+    this.physics.add.collider(player, ai);
+    this.physics.add.collider(player, this.physics.world.bounds);
+    this.physics.add.collider(ai, this.physics.world.bounds);
+
+    cursors = this.input.keyboard.createCursorKeys();
+
+    // Goals
+    this.leftGoal = new Phaser.Geom.Rectangle(0,0,50,600);
+    this.rightGoal = new Phaser.Geom.Rectangle(750,0,50,600);
+}
+
+function update(time, delta) {
+    // Player movement
+    player.setVelocityX(0);
+    if(cursors.left.isDown) player.setVelocityX(-200);
+    if(cursors.right.isDown) player.setVelocityX(200);
+    if(cursors.up.isDown && player.body.touching.down) player.setVelocityY(-300);
+
+    // AI simple movement: follow ball
+    const aiTargetX = ball.x;
+    let aiVelocity = (aiTargetX - ai.x);
+    // AI speed scales with round
+    aiVelocity = Phaser.Math.Clamp(aiVelocity, -aiSpeed, aiSpeed);
+    ai.setVelocityX(aiVelocity);
+
+    if(ball.y < ai.y && ai.body.touching.down) ai.setVelocityY(-300);
+
+    // Check goals
+    if(Phaser.Geom.Rectangle.ContainsPoint(this.leftGoal, ball)) {
+        aiScore++; nextRound(this);
+    }
+    if(Phaser.Geom.Rectangle.ContainsPoint(this.rightGoal, ball)) {
+        playerScore++; nextRound(this);
+    }
+
+    document.getElementById('score').innerText = `Player: ${playerScore} | AI: ${aiScore}`;
+}
+
+function nextRound(scene){
+    round++;
+    aiSpeed += 10; // AI gets faster each round
+    if(round > 100) aiSpeed = 1000; // impossible at 100
+    document.getElementById('round').innerText = `Round: ${round}`;
+    // Reset positions
+    player.setPosition(150,500);
+    ai.setPosition(650,500);
+    ball.setPosition(400,400);
+    ball.setVelocity(Phaser.Math.Between(-200,200), -200);
+}
+</script>
+</body>
+</html>
