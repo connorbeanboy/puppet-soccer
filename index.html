@@ -5,7 +5,7 @@
 <title>Puppet Soccer</title>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
 <style>
-body { margin:0; overflow:hidden; }
+body { margin:0; overflow:hidden; background:#007700; }
 canvas { display:block; margin:0 auto; }
 #score { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 4px #000; }
 #round { position:absolute; top:50px; left:50%; transform:translateX(-50%); font-size:24px; color:white; text-shadow:2px 2px 4px #000; }
@@ -29,6 +29,7 @@ let cursors;
 let playerScore = 0, aiScore = 0;
 let round = 1;
 let aiSpeed = 120;
+let goalLeft, goalRight;
 
 function preload() {
     this.load.image('puppet','https://kenney.nl/assets/1bitpack/Character0001.png');
@@ -36,28 +37,28 @@ function preload() {
 }
 
 function create() {
-    // Football pitch
-    this.add.rectangle(400,300,800,600,0x007700); // grass background
+    // Pitch graphics
+    this.add.rectangle(400,300,800,600,0x33CC33); // main grass
     this.add.line(400,0,0,300,800,300,0xFFFFFF).setLineWidth(4); // center line
     this.add.circle(400,300,50).setStrokeStyle(4,0xFFFFFF); // center circle
-    this.add.line(50,0,50,0,50,600,0xFFFFFF).setLineWidth(4); // left goal line
-    this.add.line(750,0,750,0,750,600,0xFFFFFF).setLineWidth(4); // right goal line
+    this.add.rectangle(25,300,10,150,0xFFFFFF); // left goal area
+    this.add.rectangle(775,300,10,150,0xFFFFFF); // right goal area
 
-    // Ground for physics
+    // Ground
     ground = this.physics.add.staticGroup();
     ground.create(400,590,'ground').setScale(2).refreshBody();
 
-    // Player
+    // Players
     player = this.physics.add.sprite(150,500,'puppet').setCollideWorldBounds(true).setBounce(0.2);
     ai = this.physics.add.sprite(650,500,'puppet').setCollideWorldBounds(true).setBounce(0.2);
 
     // Ball
     ball = this.add.circle(400,400,15,0xFFFF00);
     this.physics.add.existing(ball);
+    ball.body.setCircle(15);
     ball.body.setCollideWorldBounds(true);
     ball.body.setBounce(0.9);
-    ball.body.setCircle(15);
-    ball.body.setVelocity(Phaser.Math.Between(-200,200), -300);
+    resetBall();
 
     // Colliders
     this.physics.add.collider(player, ground);
@@ -69,9 +70,9 @@ function create() {
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // Goal coordinates
-    this.leftGoalX = 0;
-    this.rightGoalX = 800;
+    // Goals
+    goalLeft = new Phaser.Geom.Rectangle(0,225,10,150);
+    goalRight = new Phaser.Geom.Rectangle(790,225,10,150);
 }
 
 function update() {
@@ -79,19 +80,18 @@ function update() {
     player.setVelocityX(0);
     if(cursors.left.isDown) player.setVelocityX(-250);
     if(cursors.right.isDown) player.setVelocityX(250);
-    if(cursors.up.isDown && player.body.onFloor()) player.setVelocityY(-600); // HIGHER jump
+    if(cursors.up.isDown && player.body.onFloor()) player.setVelocityY(-650); // higher jump
 
-    // Improved AI: track ball, move horizontally, jump if ball above
-    const distanceX = ball.x - ai.x;
-    const distanceY = ball.y - ai.y;
-    ai.setVelocityX(Phaser.Math.Clamp(distanceX * 1.2, -aiSpeed, aiSpeed));
-    if(distanceY < -20 && ai.body.onFloor()) ai.setVelocityY(-450);
+    // AI behavior
+    let dx = ball.x - ai.x;
+    ai.setVelocityX(Phaser.Math.Clamp(dx*1.2, -aiSpeed, aiSpeed));
+    if(ball.y < ai.y - 20 && ai.body.onFloor()) ai.setVelocityY(-450);
 
-    // Check goals
-    if(ball.x <= this.leftGoalX) { // AI scored
+    // Check for goals
+    if(Phaser.Geom.Rectangle.ContainsPoint(goalLeft, ball)) {
         aiScore++; nextRound(this);
     }
-    if(ball.x >= this.rightGoalX) { // Player scored
+    if(Phaser.Geom.Rectangle.ContainsPoint(goalRight, ball)) {
         playerScore++; nextRound(this);
     }
 
@@ -99,14 +99,19 @@ function update() {
     document.getElementById('round').innerText = `Round: ${round}`;
 }
 
-function nextRound(scene){
+function nextRound(scene) {
     round++;
     aiSpeed += 10;
     if(round > 100) aiSpeed = 1000;
-    // Reset positions
+
     player.setPosition(150,500);
     ai.setPosition(650,500);
-    ball.setPosition(400,400);
+    resetBall();
+}
+
+function resetBall() {
+    ball.x = 400;
+    ball.y = 400;
     ball.body.setVelocity(Phaser.Math.Between(-200,200), -300);
 }
 </script>
